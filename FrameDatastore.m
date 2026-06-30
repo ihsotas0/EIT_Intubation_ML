@@ -1,119 +1,146 @@
-classdef FrameDatastore < matlab.io.Datastore & matlab.io.datastore.MiniBatchable
-    properties
-        Files
-        FrameIndex
-        CurrentIndex = 1
-    
-        MiniBatchSize = 1
-    end
+clear
+clc
+close all
 
-    properties (SetAccess = protected)
-        NumObservations
-    end
+%% ---------------------------------------------------------------------- %
+%                             Define Datastore                            %
+% ----------------------------------------------------------------------- %
+
+fprintf("Setting up the datastore with all files\n")
+setupStart = tic;
+
+% Define location of data
+atlas_dir = '/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE';
+
+% Create a base datastore to find the list of files
+volt_ds = fileDatastore(atlas_dir, ...
+                        "ReadFcn", @LoadFrame, ...
+                        "ReadMode","partialfile", ...
+                        "IncludeSubfolders", true, ...
+                        "FileExtensions", ".mat");
+
+% Filter to keep only folders of voltage data on belts
+keep          = contains(volt_ds.Files, fullfile("belt","voltages"), "IgnoreCase", true);
+volt_ds.Files = volt_ds.Files(keep);
+
+% Filter to keep only files whose names contain "Video"
+keep          = contains(volt_ds.Files, 'Video', 'IgnoreCase', true);
+volt_ds.Files = volt_ds.Files(keep);
+
+setupTime= toc(setupStart);
+fprintf("   It took %.2f seconds to setup and filter the datastore\n", setupTime)
+
+%% ---------------------------------------------------------------------- %
+%                             Split By Subject                            %
+% ----------------------------------------------------------------------- %
+
+fprintf("Splitting into three datastores by subject name\n")
+splitStart = tic;
+
+% Set percentages for training and validation. Test will be leftovers.
+sizeTrain = 0.70;
+sizeVal   = 0.20;
+
+% Set the "randomness" off so if I make changes, each network has the same training sets for comparison
+rng(1)
+
+% Find subject names & randomize them
+expr       = "(case\d{6}|R\d{4})";
+sbjs       = regexp(volt_ds.Files, expr, "match", "once");
+uniqueSbjs = unique(sbjs);
+nSbjs      = numel(uniqueSbjs);
+randomSbjs = uniqueSbjs(randperm(nSbjs));
+
+% Determine which subjects belong to which dataset
+nTrain = round(sizeTrain * nSbjs);
+nVal   = round(sizeVal * nSbjs);
+nTest  = nSbjs - nTrain - nVal;
+
+trainSbjs = randomSbjs(1:nTrain);
+valSbjs   = randomSbjs(nTrain+1 : nTrain+nVal);
+testSbjs  = randomSbjs(nTrain+nVal+1 : end);
+
+isTrain = ismember(sbjs, trainSbjs);
+isVal   = ismember(sbjs, valSbjs);
+isTest  = ismember(sbjs, testSbjs);
+
+% Create the three partitioned datastores
+Train_ds = copy(volt_ds);
+Train_ds.Files = volt_ds.Files(isTrain);
+
+Val_ds = copy(volt_ds);
+Val_ds.Files = volt_ds.Files(isVal);
+
+Test_ds = copy(volt_ds);
+Test_ds.Files = volt_ds.Files(isTest);
+
+splitTime = toc(splitStart);
+fprintf("   It took %.2f seconds to split the datastore into three\n", splitTime)
+
+%% ---------------------------------------------------------------------- %
+%                           Save the Datastores                           %
+% ----------------------------------------------------------------------- %
+
+% Save the total datastore and the final datastores
+fprintf("Saving datastores\n")
+save("Intubation_Datastores.mat", "volt_ds", "Train_ds", "Val_ds", "Test_ds")
 
 
+%% ---------------------------------------------------------------------- %
+%                           Load & Save the Data                          %
+% ----------------------------------------------------------------------- %
 
-    methods
-        function ds = FrameDatastore(files, frameIdx)
-            ds.Files = files;
-            ds.FrameIndex = frameIdx;
-            ds.NumObservations = numel(files);
-        end
+% Save the total datastore and the final datastores
+fprintf("Reading all data\n")
+allTrain = vertcat(readall(Train_ds,"UseParallel", true));
+allVal   = vertcat(readall(Val_ds,  "UseParallel", true));
+allTest  = vertcat(readall(Test_ds, "UseParallel", true));
 
-        function tf = hasdata(ds)
-            tf = ds.CurrentIndex <= numel(ds.Files);
-        end
-
-        function reset(ds)
-            ds.CurrentIndex = 1;
-        end
-
-        function [data, info] = read(ds)
-            file = ds.Files{ds.CurrentIndex};
-            frame = ds.FrameIndex(ds.CurrentIndex);
-
-            % Load the data as {voltage, label}
-            data = LoadData(file, frame);
-
-            info.Size = {size(data{1}), size(data{2})};In m
-            info.FileName = file;
-
-            ds.CurrentIndex = ds.CurrentIndex + 1;
-        end
-
-        % ============================================================
-        % Required by MiniBatchable
-        % ============================================================
-        function subds = partition(ds,n,ii)
-            subds = copy(ds);
-            subds.Files = partition(ds.Files,n,ii);
-            reset(subds);         
-        end
-
-        function n = numpartitions(ds)
-            % Each element is its own partition
-            n = numel(ds.Files);
-        end
-
-        % function dsCopy = copy(ds)
-        %     dsCopy = FrameDatastore(ds.Files, ds.FrameIndex);
-        %     dsCopy.CurrentIndex = ds.CurrentIndex;
-        % end
-
-        function tf = isDone(ds)
-            tf = ~ds.hasdata;
-        end
-    end
-
-    methods (Hidden = true)
-        function frac = progress(ds)
-            % Determine percentage of data read from datastore
-            if hasdata(ds) 
-               frac = (ds.CurrentIndex-1)/...
-                             numel(ds.Files); 
-            else 
-              frac = 1;  
-            end 
-        end
-    end
-end
-
+%%si
+fprintf("Saving data\n")
+save("Intubation_Data.mat", "allTrain", "allVal", "allTest", "-v7.3")
 
 %% ---------------------------------------------------------------------- %
 %                             Custom Functions                            %
 % ----------------------------------------------------------------------- %
 
-function out = LoadData(full_filepath, frameIndex)
-    % --- Load voltage data ---
-    try 
-        % Load the voltage with no noise and add noise
-        voltage = load(full_filepath, "Umeas_NoNoise").Umeas_NoNoise;
-        use_GE  = load(full_filepath, "flags").flags.use_GE;
+function [data, userdata, done] = LoadFrame(full_filepath, userdata)
+    % Initialize userdata on first call
+    if isempty(userdata)
+        % Load voltage data based on if it has noise or not
+        try 
+            % Load the voltage with no noise and add noise
+            userdata.volt = load(full_filepath, "Umeas_NoNoise").Umeas_NoNoise;
+            use_GE        = load(full_filepath, "flags").flags.use_GE;
 
-        % voltage is 32x31xframes, so we take only one slice
-        voltage = squeeze(voltage(:,:,frameIndex));
-
-        if use_GE == 1
-            voltage = awgn(voltage, 55, "measured");
-        else
-            voltage = awgn(voltage, 100, "measured");
+            % Add noise to the voltages
+            if use_GE == 1
+                userdata.volt = awgn(userdata.volt, 55, "measured");
+            else
+                userdata.volt = awgn(userdata.volt, 100, "measured");
+            end
+        catch
+            % Load the voltage that already has noise
+            userdata.volt = load(full_filepath, "Umeas").Umeas;
         end
-    catch
-        % Load the voltage that already has noise
-        voltage = load(full_filepath, "Umeas").Umeas;
+        
+        % Set up frame information
+        userdata.numFrames = size(userdata.volt, 3);
+        userdata.frame     = 1;   % start at frame 1
 
-        % voltage is 32x31xframes, so we take only one slice
-        voltage = squeeze(voltage(:,:,frameIndex));
+        % Normalize the data from [-1, 1]
+        oldMin = min(userdata.volt,[],"all");
+        oldMax = max(userdata.volt,[],"all");
+        newMin = -1;
+        newMax =  1;
+        userdata.volt = (userdata.volt - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin;
+
+        % % Standardize the data with zero mean and one std
+        % userdata.volt = normalize(userdata.volt, 3);
     end
-
-    % --- Normalize the Data from [-1, 1] ---
-    oldMin = min(voltage,[],"all");
-    oldMax = max(voltage,[],"all");
-    newMin = -1;
-    newMax = 1;
-    voltage = (voltage - oldMin) / (oldMax - oldMin) * (newMax - newMin) + newMin;
-
-    out{1} = voltage;
+    
+    % Total volts is 32x31xframes, so we output only the one frame
+    data{1} = squeeze(userdata.volt(:,:,userdata.frame));
 
     % --- Parse label from filename ---
     file_parts  = split(full_filepath, filesep);
@@ -128,6 +155,15 @@ function out = LoadData(full_filepath, frameIndex)
 
     % Convert the string label to a numeric
     labels = ["Reg_Intubate", "Left_Intubate", "Right_Intubate", "Esoph_Intubate"];
-    out{2} = find(label == labels);
+    % data{2} = double(find(label == labels));
+    data{2} = categorical(label, ["Reg_Intubate", "Left_Intubate", "Right_Intubate", "Esoph_Intubate"]);
+
+    % Increase the counter and determine if we're done reading the file
+    userdata.frame = userdata.frame + 1;
+    if userdata.frame > userdata.numFrames
+        done = true;
+    else
+        done = false;
+    end
 
 end

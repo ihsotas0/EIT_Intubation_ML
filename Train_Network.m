@@ -3,7 +3,7 @@ clc
 close all
 
 load Intubation_Datastores.mat Train_ds Val_ds
-return
+
 labels = ["Reg_Intubate", "Left_Intubate", "Right_Intubate", "Esoph_Intubate"];
 numClasses = length(labels);
 
