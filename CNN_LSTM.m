@@ -58,7 +58,6 @@ mbqTest = minibatchqueue(test_ds, ...
 clear X_train Y_train X_val Y_val X_test Y_test
 
 %% 6. Define network
-numHiddenUnits = 128;
 
 % % Got stuck at loss of 1.6. Validation loss of 1.3322.
 % layers = [
@@ -111,16 +110,30 @@ numHiddenUnits = 128;
 %     lstmLayer(128,"Name","lstm","OutputMode","last")
 %     fullyConnectedLayer(4,"Name","fc")
 %     softmaxLayer("Name","softmax")
-% ];
+% ]; 
 
+% Very deep CNN network, no LSTM.
 layers = [
-    sequenceInputLayer([32 31 1],"Name","input")
-    fullyConnectedLayer(992,"Name","fc1")
+    sequenceInputLayer([32 31 1],"Name","sequence")
+    convolution2dLayer([3 3],64,"Name","conv1","Padding","same")
+    batchNormalizationLayer("Name","batchnorm1")
     leakyReluLayer(0.01,"Name","leakyrelu1")
-    fullyConnectedLayer(496,"Name","fc2")
+    maxPooling2dLayer([4 1],"Name","maxpool1","Padding","same","Stride",[2 1])
+    convolution2dLayer([3 3],128,"Name","conv2","Padding","same")
+    batchNormalizationLayer("Name","batchnorm2")
     leakyReluLayer(0.01,"Name","leakyrelu2")
-    fullyConnectedLayer(128,"Name","fc3")
-    leakyReluLayer(0.01,"Name","leakyrelu")
+    maxPooling2dLayer([4 1],"Name","maxpool2","Padding","same","Stride",[2 1])
+    convolution2dLayer([3 3],256,"Name","conv3","Padding","same")
+    batchNormalizationLayer("Name","batchnorm3")
+    leakyReluLayer(0.01,"Name","leakyrelu3")
+    maxPooling2dLayer([4 1],"Name","maxpool3","Padding","same","Stride",[2 1])
+    convolution2dLayer([3 3],512,"Name","conv4","Padding","same")
+    batchNormalizationLayer("Name","batchnorm4")
+    leakyReluLayer(0.01,"Name","leakyrelu4")
+    maxPooling2dLayer([4 1],"Name","maxpool4","Padding","same","Stride",[4 1])
+    convolution2dLayer([1 31],64,"Name","conv5","Padding","same","Stride",[1 31])
+    batchNormalizationLayer("Name","batchnorm5")
+    leakyReluLayer(0.01,"Name","leakyrelu5")
     flattenLayer("Name","flatten")
     lstmLayer(128,"Name","lstm","OutputMode","last")
     fullyConnectedLayer(4,"Name","fc")
@@ -129,7 +142,7 @@ layers = [
 
 %% 7. Train network
 options = trainingOptions("adam", ...
-    MaxEpochs=120, ...
+    MaxEpochs=10000, ...
     Metrics = ["accuracy"], ...
     InitialLearnRate=0.001, ...
     MiniBatchSize=16, ...
@@ -139,9 +152,7 @@ options = trainingOptions("adam", ...
     Shuffle="every-epoch");
 
 % Train the network
-[net,info] = trainnet(mbqTrain, layers, ...
-    @(Y, T) crossentropy(Y,T, ClassificationMode="multilabel"), ...
-    options);
+[net,info] = trainnet(mbqTrain, layers, "crossentropy", options);
 
 % Create timestamp and filename (safe for filenames)
 timestamp = datestr(now, 'yyyy-mm-dd_HHMMSS');
