@@ -1,64 +1,31 @@
 clear
 clc
 close all
-rng(42)
+rng(1)
 
-%% 1. Load data into memory
-load("intubation_video_data.mat", "all_train", "all_val", "all_test");
+%% Download, format, and save data (run once to localize data!)
 
-%% 2. Unpack and format data
-[X_train, Y_train] = formatReadall(all_train);
-[X_val, Y_val]     = formatReadall(all_val);
-[X_test, Y_test]   = formatReadall(all_test);
+jonah_machine_path = '/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE';
 
-% One-hot encodding
-labels = ["Reg_Intubate", "Left_Intubate", "Right_Intubate", "Esoph_Intubate"];
-numClasses = length(labels);
+% Make SMB network datastores
+[train_ds, val_ds, test_ds] = makeVoltageFileDatastores( ...
+    jonah_machine_path, ...
+    0.7, ...
+    0.2, ...
+    1);
 
-Y_train = cellfun(@full, ind2vec(Y_train, numClasses), UniformOutput=false);
-Y_val = cellfun(@full, ind2vec(Y_val, numClasses), UniformOutput=false);
-Y_test = cellfun(@full, ind2vec(Y_test, numClasses), UniformOutput=false);
+% Load into memory
+[train_ds, val_ds, test_ds] = makeVoltageArrayDatastores(train_ds, val_ds, test_ds);
 
-%% 3. Create the arrayDatastores
-train_ds = arrayDatastore(cat(2, X_train, Y_train), ...
-    IterationDimension=1, ...
-    OutputType="same");
-val_ds   = arrayDatastore(cat(2, X_val, Y_val), ...
-    IterationDimension=1, ...
-    OutputType="same");
-test_ds  = arrayDatastore(cat(2, X_test, Y_test), ...
-    IterationDimension=1, ...
-    OutputType="same");
+save("data/voltage_arraydatastores.mat", "train_ds", "val_ds", "test_ds")
 
-% Would normally use this, but over network it is too slow. My machine has
-% enough RAM for this to run well enough.
-%load intubation_video_datastores.mat train_ds val_ds test_ds
+%% Make minibatchqueues
 
-%% 5. Make mini-batches
-miniBatchSize = 16;
+load("data/voltage_arraydatastores.mat", "train_ds", "val_ds", "test_ds")
 
-% MATLAB magic: Format as "SSTBC" to get 32(S) × 31(S) × 1(C) × 16(B) × 39(T)
-mbqTrain = minibatchqueue(train_ds, ...
-    MiniBatchSize=miniBatchSize, ...
-    OutputAsDlarray=[1 1], ...
-    MiniBatchFormat=["SSTBC" "CB"], ...
-    OutputEnvironment=["auto" "auto"]);
-mbqVal = minibatchqueue(val_ds, ...
-    MiniBatchSize=miniBatchSize, ...
-    OutputAsDlarray=[1 1], ...
-    MiniBatchFormat=["SSTBC" "CB"], ...
-    OutputEnvironment=["auto" "auto"]);
-mbqTest = minibatchqueue(test_ds, ...
-    MiniBatchSize=miniBatchSize, ...
-    OutputAsDlarray=[1 1], ...
-    MiniBatchFormat=["SSTBC" "CB"], ...
-    OutputEnvironment=["auto" "auto"]);
+[mbqTrain, mbqVal, mbqTest] = makeVoltageMBQs(train_ds, val_ds, train_ds, 16);
 
-% Clear up memory before training
-clear X_train Y_train X_val Y_val X_test Y_test
-
-%% 6. Define network
-numHiddenUnits = 128;
+%% Define a network
 
 % % Got stuck at loss of 1.6. Validation loss of 1.3322.
 % layers = [
@@ -113,8 +80,8 @@ numHiddenUnits = 128;
 %     softmaxLayer("Name","softmax")
 % ]; 
 
-% Very deep CNN network, no LSTM.
-tempNet = [
+% Useful for workspace modifications
+layers = [
     sequenceInputLayer([32 31 1],"Name","sequence")
     convolution2dLayer([3 3],64,"Name","conv1","Padding","same")
     batchNormalizationLayer("Name","batchnorm1")
@@ -135,12 +102,32 @@ tempNet = [
     convolution2dLayer([1 31],64,"Name","conv5","Padding","same","Stride",[1 31])
     batchNormalizationLayer("Name","batchnorm5")
     leakyReluLayer(0.01,"Name","leakyrelu5")
-    fullyConnectedLayer(64,"Name","fc1")
-    leakyReluLayer(0.01,"Name","leakyrelu6")
-    fullyConnectedLayer(4,"Name","fc2")
-    softmaxLayer("Name","softmax")];
+    flattenLayer("Name","flatten")
+    lstmLayer(128,"Name","lstm","OutputMode","last")
+    fullyConnectedLayer(4,"Name","fc")
+    softmaxLayer("Name","softmax")
+];
 
-%% 7. Train network
+%% Save an untrained network
+
+net = dlnetwork(layers);
+
+% Adjust me for each model!
+model_name = 'deep_cnn_lstm';
+
+% Save untrained network
+filename = sprintf('untrained_models/%s.mat', model_name);
+save(filename,"net")
+
+%% Train a network
+
+% Adjust me for each model!
+model_name = 'deep_cnn_lstm';
+
+% Load untrained network
+filename = sprintf('untrained_models/%s.mat', model_name);
+load(filename,"net")
+
 options = trainingOptions("adam", ...
     MaxEpochs=10000, ...
     Metrics = ["accuracy"], ...
@@ -149,20 +136,18 @@ options = trainingOptions("adam", ...
     ValidationData=mbqVal, ...
     ValidationFrequency=250, ...
     Plots="training-progress", ...
-    Shuffle="every-epoch");
+    Shuffle="every-epoch" ...
+);
 
-% Train the network
-[net,info] = trainnet(mbqTrain, layers, ...
-    @(Y, T) crossentropy(Y,T, ClassificationMode="multilabel"), ...
-    options);
-
-% Create timestamp and filename (safe for filenames)
-timestamp = datestr(now, 'yyyy-mm-dd_HHMMSS');
-filename = sprintf('cnn_lstm_network_%s.mat', timestamp);
+[net,info] = trainnet(mbqTrain,net,"crossentropy",options);
 
 % Save
+filename = sprintf('trained_models/%s.mat', model_name);
 save(filename, 'net', 'info')
 
-%% 8. Evaluate
+%% Test network
+
+% TODO: Confusion chart and other better tests
 testAccuracy = testnet(net, mbqTest, "accuracy");
 fprintf('Test Accuracy: %.2f%%\n', testAccuracy);
+

@@ -27,30 +27,7 @@
 ## Project Structure
 
 ```
-simple-eit/
-├── LICENSE                # MIT License
-├── README.md              # This file
-├── todo.txt               # Future features
-├── requirements.txt       # Python dependencies
-│
-├── src/                   # Source code
-│   ├── main.py            # Entry point: GUI, threading, visualization
-│   ├── simple_eit.py      # High-level EIT control wrapper
-│   ├── classifier.py      # ML model management & inference
-│   ├── device_manager.py  # PyVISA hardware interface
-│   ├── pyvisa...tool.py   # PyVISA diagnostics tool for debugging
-│   ├── data_collector.py  # Training data collection utilities
-│   └── visualization.py   # CURC figure code
-│
-├── data/                  # Datasets & cached models
-│   ├── *_data.csv         # Training datasets (generated)
-│   ├── models/            # Cached .joblib model files
-│   └── archive/           # Old data and models used for CURC
-│
-├── cad/                   # Test rig and OHR design files
-│   └── *.step, *.stl
-│
-└── doc/                   # Extended documentation
+
 ```
 
 ---
