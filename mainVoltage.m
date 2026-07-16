@@ -23,97 +23,23 @@ save("data/voltage_arraydatastores.mat", "train_ds", "val_ds", "test_ds")
 
 load("data/voltage_arraydatastores.mat", "train_ds", "val_ds", "test_ds")
 
-[mbqTrain, mbqVal, mbqTest] = makeVoltageMBQs(train_ds, val_ds, train_ds, 16);
+[mbqTrain, mbqVal, mbqTest] = makeVoltageMBQs(train_ds, val_ds, test_ds, 16);
 
-%% Define a network
+clear train_ds val_ds test_ds;
 
-% % Got stuck at loss of 1.6. Validation loss of 1.3322.
-% layers = [
-%     sequenceInputLayer([32 31 1],"Name","input")
-% 
-%     % --- Spatial Encoder (CNN) ---
-%     % These layers apply to each time step independently
-%     convolution2dLayer([8 1],32,"Name","conv1","Padding","same","Stride",[2 1])
-%     batchNormalizationLayer("Name","bn1")
-%     reluLayer("Name","relu1")
-% 
-%     maxPooling2dLayer([4 1],"Name","maxpool1","Padding","same","Stride",[4 1])
-% 
-%     convolution2dLayer([4 1],64,"Name","conv2","Padding","same","Stride",[4 1])
-%     batchNormalizationLayer("Name","bn2")
-%     reluLayer("Name","relu2")
-% 
-%     % --- Reduce Dimensionality ---
-%     globalAveragePooling2dLayer("Name","gapool")
-%     flattenLayer("Name","flatten")
-% 
-%     % --- Temporal Processor (RNN) ---
-%     % Processes the sequence of 64-feature vectors, outputs a single feature vector
-%     lstmLayer(numHiddenUnits,"Name","lstm","OutputMode","last")
-% 
-%     % --- Classification Head ---
-%     fullyConnectedLayer(numClasses,"Name","fc")
-%     softmaxLayer("Name","softmax")];
+%% Define networks
 
-% layers = [
-%     sequenceInputLayer([32 31 1],"Name","input")
-% 
-%     convolution2dLayer([4 4],64,"Name","conv1","Padding","same","Stride",[2 1])
-%     batchNormalizationLayer("Name","bn1")
-%     reluLayer("Name","relu1")
-%     maxPooling2dLayer([2 1],"Name","maxpool1","Padding","same","Stride",[2 1])
-% 
-%     convolution2dLayer([4 4],128,"Name","conv2","Padding","same","Stride",[2 1])
-%     batchNormalizationLayer("Name","bn2")
-%     reluLayer("Name","relu2")
-%     maxPooling2dLayer([2 1],"Name","maxpool2","Padding","same","Stride",[2 1])
-% 
-%     convolution2dLayer([2 8],256,"Name","conv3","Padding","same","Stride",[2 1])
-%     batchNormalizationLayer("Name","bn3")
-%     reluLayer("Name","relu3")
-%     globalAveragePooling2dLayer("Name","gapool")
-% 
-%     flattenLayer("Name","flatten")
-% 
-%     lstmLayer(128,"Name","lstm","OutputMode","last")
-%     fullyConnectedLayer(4,"Name","fc")
-%     softmaxLayer("Name","softmax")
-% ]; 
-
-% Useful for workspace modifications
-layers = [
-    sequenceInputLayer([32 31 1],"Name","sequence")
-    convolution2dLayer([3 3],64,"Name","conv1","Padding","same")
-    batchNormalizationLayer("Name","batchnorm1")
-    leakyReluLayer(0.01,"Name","leakyrelu1")
-    maxPooling2dLayer([4 1],"Name","maxpool1","Padding","same","Stride",[2 1])
-    convolution2dLayer([3 3],128,"Name","conv2","Padding","same")
-    batchNormalizationLayer("Name","batchnorm2")
-    leakyReluLayer(0.01,"Name","leakyrelu2")
-    maxPooling2dLayer([4 1],"Name","maxpool2","Padding","same","Stride",[2 1])
-    convolution2dLayer([3 3],256,"Name","conv3","Padding","same")
-    batchNormalizationLayer("Name","batchnorm3")
-    leakyReluLayer(0.01,"Name","leakyrelu3")
-    maxPooling2dLayer([4 1],"Name","maxpool3","Padding","same","Stride",[2 1])
-    convolution2dLayer([3 3],512,"Name","conv4","Padding","same")
-    batchNormalizationLayer("Name","batchnorm4")
-    leakyReluLayer(0.01,"Name","leakyrelu4")
-    maxPooling2dLayer([4 1],"Name","maxpool4","Padding","same","Stride",[4 1])
-    convolution2dLayer([1 31],64,"Name","conv5","Padding","same","Stride",[1 31])
-    batchNormalizationLayer("Name","batchnorm5")
-    leakyReluLayer(0.01,"Name","leakyrelu5")
-    flattenLayer("Name","flatten")
-    lstmLayer(128,"Name","lstm","OutputMode","last")
-    fullyConnectedLayer(4,"Name","fc")
-    softmaxLayer("Name","softmax")
-];
+default_resnet = resnetNetwork([32 31 1],4,...
+    "InitialPoolingLayer","none",...
+    "InitialStride",1);
 
 %% Save an untrained network
 
-net = dlnetwork(layers);
+% Comment for Deep Network Designer workspace stuff
+%net = dlnetwork(layers);
 
 % Adjust me for each model!
-model_name = 'deep_cnn_lstm';
+model_name = 'default_resnet_lstm';
 
 % Save untrained network
 filename = sprintf('untrained_models/%s.mat', model_name);
@@ -122,16 +48,16 @@ save(filename,"net")
 %% Train a network
 
 % Adjust me for each model!
-model_name = 'deep_cnn_lstm';
+model_name = 'default_resnet_lstm';
 
 % Load untrained network
 filename = sprintf('untrained_models/%s.mat', model_name);
 load(filename,"net")
 
 options = trainingOptions("adam", ...
-    MaxEpochs=10000, ...
+    MaxEpochs=100, ...
     Metrics = ["accuracy"], ...
-    InitialLearnRate=0.001, ...
+    InitialLearnRate=0.025, ...
     MiniBatchSize=16, ...
     ValidationData=mbqVal, ...
     ValidationFrequency=250, ...

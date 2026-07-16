@@ -18,7 +18,6 @@
 
 ## Installation
 
----
 
 ## Quick Start
 
