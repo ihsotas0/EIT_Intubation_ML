@@ -3,7 +3,11 @@ tensor = dataCell{1};
 label_raw = dataCell{2};
 
 labels = ["Reg Intubate", "Left Intubate", "Right Intubate", "Esoph Intubate"];    
-label_text = labels(label_raw);
+
+% For one-hot encoded labels
+[~,index] = max(label_raw);
+
+label_text = labels(index);
 
 [H, W, num_frames] = size(tensor);
 state.current_frame = 1;

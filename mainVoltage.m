@@ -33,6 +33,11 @@ default_resnet = resnetNetwork([32 31 1],4,...
     "InitialPoolingLayer","none",...
     "InitialStride",1);
 
+layers = [
+    sequenceInputLayer([32 31 1])
+    softmaxLayer
+];
+
 %% Save an untrained network
 
 % Comment for Deep Network Designer workspace stuff
