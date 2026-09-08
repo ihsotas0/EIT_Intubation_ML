@@ -23,20 +23,37 @@ save("data/voltage_arraydatastores.mat", "train_ds", "val_ds", "test_ds")
 
 load("data/voltage_arraydatastores.mat", "train_ds", "val_ds", "test_ds")
 
-[mbqTrain, mbqVal, mbqTest] = makeVoltageMBQs(train_ds, val_ds, test_ds, 16);
+[mbqTrain, mbqVal, mbqTest] = makeVoltageMBQs(train_ds, val_ds, test_ds, 32);
 
 clear train_ds val_ds test_ds;
 
-%% Define networks
+%% Make minibatchqueues for frame-wise data
+% voltage_raw_frame_data.mat is just the readall of
+% voltage_arraydatastores.mat with each row being split into 39 new rows
+% for each frame in the video (with the label one-hot vector being copied
+% for each new row). The code to make this file is not included here.
 
-default_resnet = resnetNetwork([32 31 1],4,...
+minibatchsize = 200;
+
+load("data/voltage_raw_frame_data.mat","train_expanded","val_expanded","test_expanded")
+
+% Create the arrayDatastores
+train_ds = arrayDatastore(train_expanded, ...
+    IterationDimension=1, ...
+    OutputType="same");
+val_ds   = arrayDatastore(val_expanded, ...
+    IterationDimension=1, ...
+    OutputType="same");
+test_ds  = arrayDatastore(test_expanded, ...
+    IterationDimension=1, ...
+    OutputType="same");
+
+[mbqTrain, mbqVal, mbqTest] = makeVoltageMBQsFrameWise(train_ds, val_ds, test_ds, minibatchsize);
+
+%% Define networks
+net = resnetNetwork([32 31 1],4,...
     "InitialPoolingLayer","none",...
     "InitialStride",1);
-
-layers = [
-    sequenceInputLayer([32 31 1])
-    softmaxLayer
-];
 
 %% Save an untrained network
 
@@ -44,7 +61,7 @@ layers = [
 %net = dlnetwork(layers);
 
 % Adjust me for each model!
-model_name = 'default_resnet_lstm';
+model_name = 'fw_default_resnet';
 
 % Save untrained network
 filename = sprintf('untrained_models/%s.mat', model_name);
@@ -53,28 +70,28 @@ save(filename,"net")
 %% Train a network
 
 % Adjust me for each model!
-model_name = 'default_resnet_lstm';
+model_name = 'fw_default_resnet';
 
 % Load untrained network
 filename = sprintf('untrained_models/%s.mat', model_name);
 load(filename,"net")
 
 options = trainingOptions("adam", ...
-    MaxEpochs=100, ...
+    MaxEpochs=1000, ...
     Metrics = ["accuracy"], ...
     InitialLearnRate=0.025, ...
-    MiniBatchSize=16, ...
+    MiniBatchSize=minibatchsize, ...
     ValidationData=mbqVal, ...
     ValidationFrequency=250, ...
     Plots="training-progress", ...
     Shuffle="every-epoch" ...
 );
 
-[net,info] = trainnet(mbqTrain,net,"crossentropy",options);
+[train_net,train_info] = trainnet(mbqTrain,net,"crossentropy",options);
 
 % Save
 filename = sprintf('trained_models/%s.mat', model_name);
-save(filename, 'net', 'info')
+save(filename, 'train_net', 'train_info')
 
 %% Test network
 

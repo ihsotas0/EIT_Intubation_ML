@@ -1,6 +1,6 @@
 function data = loadVideo(full_filepath)
 % Check voltage data for noise and add it
-try 
+try
     % Load the voltage with no noise and add noise
     voltage = load(full_filepath, "Umeas_NoNoise").Umeas_NoNoise;
     use_GE  = load(full_filepath, "flags").flags.use_GE;
