@@ -6,7 +6,6 @@ raw_readall_test = readall(test_ds);
 
 % Make cell array of cell arrays into 2D cell array so output of read() is
 % 1x2 cell array and not cell array of cell arrays.
-
 raw_readall_train = vertcat(raw_readall_train{:});
 raw_readall_val = vertcat(raw_readall_val{:});
 raw_readall_test = vertcat(raw_readall_test{:});
