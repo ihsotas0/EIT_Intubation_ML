@@ -38,7 +38,7 @@ test_ds = arrayDatastore(raw_test, ...
     IterationDimension=1, ...
     OutputType="same");
 
-%clear raw_train raw_val raw_test;
+clear raw_train raw_val raw_test;
 
 % Convert to difference images
 
@@ -46,14 +46,16 @@ train_ds = transform(train_ds,@makeDiffImg);
 val_ds = transform(val_ds,@makeDiffImg);
 test_ds = transform(test_ds,@makeDiffImg);
 
-% Make contiguous subsequences
+% Make miniBatchQueues (and contiguous subsequences)
 range = 4:38;
 
-% Make miniBatchQueues
-
+% About n MB for a n=10 batch size w/ contig subseqs
 miniBatchSize = 10;
 
-[mbqTrain, mbqVal, mbqTest] = makeMBQs(train_ds, val_ds, test_ds, miniBatchSize, "SSTSBC");
+[mbqTrain, mbqVal, mbqTest] = makeMBQs( ...
+    train_ds, val_ds, test_ds, ...
+    miniBatchSize, "SSTSBC", ...
+    range);
 
 %% Define network
 % With Deep Network Designer, use workspace instead of this
