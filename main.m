@@ -40,22 +40,20 @@ test_ds = arrayDatastore(raw_test, ...
 
 clear raw_train raw_val raw_test;
 
-% Convert to difference images
+%% Convert to difference images
 
 train_ds = transform(train_ds,@makeDiffImg);
 val_ds = transform(val_ds,@makeDiffImg);
 test_ds = transform(test_ds,@makeDiffImg);
 
-% Make miniBatchQueues (and contiguous subsequences)
-range = 4:38;
+%% Make miniBatchQueues (and add time dim to classification vectors for seq-to-seq)
 
-% About n MB for a n=10 batch size w/ contig subseqs
+% About n MB for a n=10 batch size w/ seq-to-seq
 miniBatchSize = 10;
 
 [mbqTrain, mbqVal, mbqTest] = makeMBQs( ...
     train_ds, val_ds, test_ds, ...
-    miniBatchSize, "SSTSBC", ...
-    range);
+    miniBatchSize, "SSTSBC", "BCT");
 
 %% Define network
 % With Deep Network Designer, use workspace instead of this
@@ -69,7 +67,7 @@ layers = [
 %net = dlnetwork(layers);
 
 % Adjust me for each model!
-model_name = '3d_cnn_lstm';
+model_name = '3d_cnn_lstm_seq_to_seq';
 
 % Save untrained network
 filename = sprintf('untrained_models/%s.mat', model_name);
@@ -78,7 +76,7 @@ save(filename,"net")
 %% Train a network
 
 % Adjust me for each model!
-model_name = '3d_cnn_lstm';
+model_name = '3d_cnn_lstm_seq_to_seq';
 
 % Load untrained network
 filename = sprintf('untrained_models/%s.mat', model_name);
@@ -87,7 +85,7 @@ load(filename,"net")
 options = trainingOptions("adam", ...
     MaxEpochs=1000, ...
     Metrics = ["accuracy"], ...
-    InitialLearnRate=0.025, ...
+    InitialLearnRate=0.001, ...
     MiniBatchSize=miniBatchSize, ...
     ValidationData=mbqVal, ...
     ValidationFrequency=250, ...
