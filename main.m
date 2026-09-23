@@ -2,17 +2,24 @@ clear all; clc; clear;
 
 %% Make datastores
 
-%path = "/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE";
-path = input("Path: ");
+path = "/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE";
+%path = input("Path: ");
 
 [train_ds, val_ds, test_ds] = makeDatastores(path, 0.75, 0.15);
 [train_ds, val_ds, test_ds] = makeArrayDatastores(train_ds, val_ds, test_ds);
 
-%% Convert to difference images
+% Convert to difference images
+% Add time dimension to one-hot vectors
 
-train_ds_diff = transform(train_ds,@makeDiffImg);
-val_ds_diff = transform(val_ds,@makeDiffImg);
-test_ds_diff = transform(test_ds,@makeDiffImg);
+train_ds = transform(train_ds,@makeDiffImg);
+val_ds = transform(val_ds,@makeDiffImg);
+test_ds = transform(test_ds,@makeDiffImg);
+
+raw_train = readall(train_ds);
+raw_val = readall(val_ds);
+raw_test = readall(test_ds);
+
+save raw_data.mat raw_test raw_val raw_train;
 
 %% Make miniBatchQueues (with contiq subseq and seq-to-seq output)
 
@@ -20,7 +27,7 @@ miniBatchSize = 10;
 
 [mbqTrain, mbqVal, mbqTest] = makeMBQs( ...
     train_ds, val_ds, test_ds, ...
-    miniBatchSize, "SSTSBC", "BCT");
+    miniBatchSize, "SSTSBC", "CTB");
 
 %% Train models
 
