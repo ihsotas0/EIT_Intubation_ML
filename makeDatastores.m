@@ -1,7 +1,9 @@
-function [train_ds, val_ds, test_ds] = makeDatastores(filepath,train_size,val_size)
+function [train_ads, val_ads, test_ads] = makeDatastores(filepath,train_size,val_size,seed)
 
-seed = 1;
+%% Make main fileDatastore
 
+% datastoreRead converts to td-EIT, makes one-hot tensor for labels,
+% adds time dimension to output tensor before any transform()'s
 ds = fileDatastore(filepath, ...
     "ReadFcn", @datastoreRead, ...
     "IncludeSubfolders", true, ...
@@ -13,6 +15,8 @@ ds.Files = ds.Files(folderFilter);
 
 substringFilter = contains(ds.Files, 'Video', 'IgnoreCase', true);
 ds.Files = ds.Files(substringFilter);
+
+%% Split by subject
 
 % Ensure reproducible training sets
 rng(seed)
@@ -45,5 +49,29 @@ val_ds.Files = ds.Files(is_val);
 
 test_ds = copy(ds);
 test_ds.Files = ds.Files(is_test);
+
+%% Convert to in-memory arrayDatastores
+
+raw_readall_train = readall(train_ds);
+raw_readall_val = readall(val_ds);
+raw_readall_test = readall(test_ds);
+
+% Make cell array of cell arrays into 2D cell array so output of read() is
+% 1x2 cell array and not cell array of cell arrays.
+raw_readall_train = vertcat(raw_readall_train{:});
+raw_readall_val = vertcat(raw_readall_val{:});
+raw_readall_test = vertcat(raw_readall_test{:});
+
+train_ads = arrayDatastore(raw_readall_train, ...
+    IterationDimension=1, ...
+    OutputType="same");
+
+val_ads = arrayDatastore(raw_readall_val, ...
+    IterationDimension=1, ...
+    OutputType="same");
+
+test_ads = arrayDatastore(raw_readall_test, ...
+    IterationDimension=1, ...
+    OutputType="same");
 
 end

@@ -8,21 +8,22 @@ abs_bot = load(path).abs_bot;
 abs_top(isnan(abs_top)) = 0;
 abs_bot(isnan(abs_bot)) = 0;
 
-% Dims: [space-x, space-y, time, space-z]
-no_norm = cat(4, abs_top, abs_bot);
+% Dimensions: SSTS (height-width-time-depth)
+video = cat(4, abs_top, abs_bot);
 
-% Normalize datastores (implement if needed)
-%data{1} = normalize(no_norm, 1:2);
-data{1} = no_norm;
+% td-EIT: Subtract the first frame from the rest, return the remaining frames
+data{1} = video(:,:,2:end,:)-video(:,:,1,:);
 
-% Get label from file name -> one-hot encoding
+% Get label from file name -> one-hot encoding -> convert to tensor with time
 labels = ["Reg_Intubate", "Left_Intubate", "Right_Intubate", "Esoph_Intubate"];
-onehot = zeros(1,4);
+onehot = zeros(4,1);
 
+% Make one-hot
 for i=1:4
     onehot(i) = double(contains(path, labels(i)));
 end
 
-data{2} = onehot;
+% Dimensions: CT (label-time)
+data{2} = repmat(onehot,1,size(video,3)-1);
 
 end

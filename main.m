@@ -1,33 +1,36 @@
+%% Reset workspace
 clear all; clc; clear;
+
+path = "/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE";
+seed = 1;
 
 %% Make datastores
 
-path = "/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE";
-%path = input("Path: ");
+% Makes fileDatastores, then arrayDatastores; converts to td-EIT, makes
+% one-hot tensor for labels, adds time dimension to output tensor.
+[train_ds, val_ds, test_ds] = makeDatastores(path, 0.75, 0.15, seed);
 
-[train_ds, val_ds, test_ds] = makeDatastores(path, 0.75, 0.15);
-[train_ds, val_ds, test_ds] = makeArrayDatastores(train_ds, val_ds, test_ds);
+%% Make miniBatchQueues
 
-% Convert to difference images
-% Add time dimension to one-hot vectors
+format_x = "SSTSBC";
+format_y = "CTB";
+miniBatchSize = 100;
 
-train_ds = transform(train_ds,@makeDiffImg);
-val_ds = transform(val_ds,@makeDiffImg);
-test_ds = transform(test_ds,@makeDiffImg);
-
-raw_train = readall(train_ds);
-raw_val = readall(val_ds);
-raw_test = readall(test_ds);
-
-save raw_data.mat raw_test raw_val raw_train;
-
-%% Make miniBatchQueues (with contiq subseq and seq-to-seq output)
-
-miniBatchSize = 10;
-
-[mbqTrain, mbqVal, mbqTest] = makeMBQs( ...
-    train_ds, val_ds, test_ds, ...
-    miniBatchSize, "SSTSBC", "CTB");
+mbqTrain = minibatchqueue(train_ds, ...
+    MiniBatchSize=miniBatchSize, ...
+    OutputAsDlarray=[1 1], ...
+    MiniBatchFormat=[format_x format_y], ...
+    OutputEnvironment=["auto" "auto"]);
+mbqVal = minibatchqueue(val_ds, ...
+    MiniBatchSize=miniBatchSize, ...
+    OutputAsDlarray=[1 1], ...
+    MiniBatchFormat=[format_x format_y], ...
+    OutputEnvironment=["auto" "auto"]);
+mbqTest = minibatchqueue(test_ds, ...
+    MiniBatchSize=miniBatchSize, ...
+    OutputAsDlarray=[1 1], ...
+    MiniBatchFormat=[format_x format_y], ...
+    OutputEnvironment=["auto" "auto"]);
 
 %% Train models
 
@@ -48,7 +51,7 @@ for i=models
     net = net.(model_name);
     
     options = trainingOptions("adam", ...
-        MaxEpochs=250, ...
+        MaxEpochs=100, ...
         Metrics = "accuracy", ...
         InitialLearnRate=0.001, ...
         MiniBatchSize=miniBatchSize, ...

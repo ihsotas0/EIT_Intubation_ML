@@ -139,7 +139,7 @@ It is clear that the data do not require models with higher parameter counts,
 and are easily separable. The same might not be true for absolute imaging or raw
 voltages.
 
-![Accuracy vs. Parameter Count](./figures/accuracy_vs_params.png){ width=50% }
+![Accuracy vs. Parameter Count](../figures/accuracy_vs_params.png){ width=50% }
 
 
 **Comments on training curves:** Note how the loss on the log plot has a steep
@@ -153,30 +153,30 @@ too. Training for more than 100 epochs doesn't seem useful.
 
 \newpage
 
-![Confusion Charts](./figures/confusion.png)
+![Confusion Charts](../figures/confusion.png)
 
 \newpage
 
 # Training Curves
 
-![Training Curves](./figures/diff_3d_cnn_lstm_seq_to_seq_hist_basic.png)
+![Training Curves](../figures/diff_3d_cnn_lstm_seq_to_seq_hist_basic.png)
 
-![Training Curves (Smooth)](./figures/diff_3d_cnn_lstm_seq_to_seq_hist_basic_smooth.png)
+![Training Curves (Smooth)](../figures/diff_3d_cnn_lstm_seq_to_seq_hist_basic_smooth.png)
 
-![Training Curves (Smooth, log)](./figures/diff_3d_cnn_lstm_seq_to_seq_hist_log_x_smooth.png)
+![Training Curves (Smooth, log)](../figures/diff_3d_cnn_lstm_seq_to_seq_hist_log_x_smooth.png)
 
-![Training Curves (log)](./figures/diff_3d_cnn_lstm_seq_to_seq_hist_log_x.png)
+![Training Curves (log)](../figures/diff_3d_cnn_lstm_seq_to_seq_hist_log_x.png)
 
 <!-- # Confusion Charts
 
-![726k Parameter Model Frame Classification Confusion Chart](./figures/diff_3d_cnn_lstm_seq_to_seq_confusion_726k.png)
+![726k Parameter Model Frame Classification Confusion Chart](../figures/diff_3d_cnn_lstm_seq_to_seq_confusion_726k.png)
 
-![398k Parameter Model Frame Classification Confusion Chart](./figures/diff_3d_cnn_lstm_seq_to_seq_confusion_398k.png)
+![398k Parameter Model Frame Classification Confusion Chart](../figures/diff_3d_cnn_lstm_seq_to_seq_confusion_398k.png)
 
-![183k Parameter Model Frame Classification Confusion Chart](./figures/diff_3d_cnn_lstm_seq_to_seq_confusion_183k.png)
+![183k Parameter Model Frame Classification Confusion Chart](../figures/diff_3d_cnn_lstm_seq_to_seq_confusion_183k.png)
 
-![100k Parameter Model Frame Classification Confusion Chart](./figures/diff_3d_cnn_lstm_seq_to_seq_confusion_100k.png)
+![100k Parameter Model Frame Classification Confusion Chart](../figures/diff_3d_cnn_lstm_seq_to_seq_confusion_100k.png)
 
-![51k Parameter Model Frame Classification Confusion Chart](./figures/diff_3d_cnn_lstm_seq_to_seq_confusion_51k.png)
+![51k Parameter Model Frame Classification Confusion Chart](../figures/diff_3d_cnn_lstm_seq_to_seq_confusion_51k.png)
 
-![30k Parameter Model Frame Classification Confusion Chart](./figures/diff_3d_cnn_lstm_seq_to_seq_confusion_30k.png) -->
+![30k Parameter Model Frame Classification Confusion Chart](../figures/diff_3d_cnn_lstm_seq_to_seq_confusion_30k.png) -->
