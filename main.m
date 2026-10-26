@@ -1,7 +1,8 @@
 %% Reset workspace
 clear all; clc; clear;
 
-path = "/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE";
+%path = "/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Babies_GE";
+path = "/run/user/1000/gvfs/smb-share:server=ripoff.math.colostate.edu,share=eit/Anatomical_Atlas_3D/Two_Breaths";
 seed = 1;
 
 %% Make datastores
@@ -71,6 +72,14 @@ for i=models
     reset(mbqVal)
 
 end
+
+%% Transform basic arrayDatastore from tensors to dlarray format
+
+format_x = "SSTSC";
+format_y = "CT";
+
+dl_ads = transform(ads, @(x) {dlarray(x{1}, format_x), ...
+    dlarray(x{2}, format_y)});
 
 %% Test network
 
